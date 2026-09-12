@@ -39,3 +39,4 @@ dist/
 # Generated logs and reports
 *.log
 *.sql
+project_requirements_cloud.txt
