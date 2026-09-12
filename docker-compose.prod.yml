@@ -1,0 +1,49 @@
+# Production-like local override. Use with:
+# docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+services:
+  api:
+    environment:
+      LOG_LEVEL: WARNING
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+  worker:
+    environment:
+      LOG_LEVEL: WARNING
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+  ai-agent:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+  ehr-mock:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+  db:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+  queue:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M

@@ -1,0 +1,29 @@
+name: Validate Infrastructure Simulation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile services
+        run: python -m compileall services
+
+      - name: Validate development Compose configuration
+        run: docker compose config --quiet
+
+      - name: Validate production-like Compose configuration
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+
+      - name: Build custom service images
+        run: docker compose build

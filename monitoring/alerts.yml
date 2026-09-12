@@ -1,0 +1,47 @@
+groups:
+  - name: healthcare-platform
+    rules:
+      - alert: ApiUnavailable
+        expr: up{job="api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: API service is unavailable
+          description: Public API health target is down; verify the API container and recent deployment logs.
+
+      - alert: WorkerUnavailable
+        expr: up{job="worker"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Worker service is unavailable
+          description: Queue processing is paused; inspect worker logs and restart or roll back the release.
+
+      - alert: QueueBacklog
+        expr: worker_queue_depth > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Appointment queue backlog is growing
+          description: Queue depth has remained above 10 jobs; inspect worker capacity and dependency failures.
+
+      - alert: ApiErrorRateHigh
+        expr: rate(api_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: API error rate is high
+          description: API errors exceed the local simulation threshold; inspect application and database logs.
+
+      - alert: EHRDependencyUnavailable
+        expr: up{job="ehr-mock"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: EHR dependency is unavailable
+          description: Worker jobs may be retried or remain queued until the EHR service recovers.

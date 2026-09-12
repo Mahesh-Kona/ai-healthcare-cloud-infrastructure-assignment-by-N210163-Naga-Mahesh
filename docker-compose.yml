@@ -1,0 +1,150 @@
+services:
+  api:
+    build:
+      context: ./services/api
+    container_name: healthcare-api
+    ports:
+      - "18080:8080"
+    environment:
+      PORT: 8080
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-healthcare}
+      DB_USER: ${DB_USER:-healthcare}
+      DB_PASSWORD: ${DB_PASSWORD:-healthcare_local_2026}
+      REDIS_HOST: queue
+      REDIS_PORT: 6379
+      EHR_BASE_URL: http://ehr-mock:9000
+      AI_SERVICE_URL: http://ai-agent:9001
+      LOG_LEVEL: INFO
+    depends_on:
+      db:
+        condition: service_healthy
+      queue:
+        condition: service_healthy
+      ai-agent:
+        condition: service_healthy
+      ehr-mock:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  ai-agent:
+    build:
+      context: ./services/ai-agent
+    container_name: healthcare-ai-agent
+    ports:
+      - "127.0.0.1:19001:9001"
+    environment:
+      PORT: 9001
+      LOG_LEVEL: INFO
+      AI_PROVIDER_API_KEY: ${AI_PROVIDER_API_KEY:-change-me-dev}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9001/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    build:
+      context: ./services/worker
+    container_name: healthcare-worker
+    environment:
+      REDIS_HOST: queue
+      REDIS_PORT: 6379
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-healthcare}
+      DB_USER: ${DB_USER:-healthcare}
+      DB_PASSWORD: ${DB_PASSWORD:-healthcare_local_2026}
+      EHR_BASE_URL: http://ehr-mock:9000
+      LOG_LEVEL: INFO
+    depends_on:
+      db:
+        condition: service_healthy
+      queue:
+        condition: service_healthy
+      ehr-mock:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9002/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  queue:
+    image: redis:7-alpine
+    container_name: healthcare-queue
+    ports:
+      - "127.0.0.1:16379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  db:
+    image: postgres:16-alpine
+    container_name: healthcare-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-healthcare}
+      POSTGRES_USER: ${DB_USER:-healthcare}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-healthcare_local_2026}
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  ehr-mock:
+    build:
+      context: ./services/ehr-mock
+    container_name: healthcare-ehr-mock
+    ports:
+      - "127.0.0.1:19000:9000"
+    environment:
+      PORT: 9000
+      LOG_LEVEL: INFO
+      MOCK_MODE: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: healthcare-prometheus
+    ports:
+      - "127.0.0.1:19090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: healthcare-grafana
+    ports:
+      - "127.0.0.1:13000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    restart: unless-stopped
